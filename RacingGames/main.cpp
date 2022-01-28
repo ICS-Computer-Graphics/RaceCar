@@ -547,4 +547,185 @@ void renderRaceTrack(Model& model, Shader& shader)
     glm::mat4 modelMatrix = glm::mat4(1.0f);
     shader.setMat4("model", modelMatrix);
    
-   
+    // Projection transformation
+    glm::mat4 projMatrix = camera.GetProjMatrix((float)SCR_WIDTH / (float)SCR_HEIGHT);
+    shader.setMat4("projection", projMatrix);
+
+    model.Draw(shader);
+}
+
+void renderSkyBox(Shader& shader)
+{
+    // viewMatrix is ​​constructed to remove the movement of the camera
+    glm::mat4 viewMatrix = glm::mat4(glm::mat3(camera.GetViewMatrix()));
+
+    // projection
+    glm::mat4 projMatrix = camera.GetProjMatrix((float)SCR_WIDTH / (float)SCR_HEIGHT);
+
+    shader.setMat4("view", viewMatrix);
+    shader.setMat4("projection", projMatrix);
+
+    glBindVertexArray(skyboxVAO);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glBindVertexArray(0);
+}
+
+// ---------------------------------
+// keyboard/mouse monitor
+// ---------------------------------
+
+void handleKeyInput(GLFWwindow* window)
+{
+    // esc exit
+// Camera WSAD front, back, left and right Space up and left Ctrl down
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, true);
+
+    if (!isCameraFixed) {
+
+        // Camera WSAD front, back, left and right Space up and left Ctrl down
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+            camera.ProcessKeyboard(FORWARD, deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+            camera.ProcessKeyboard(BACKWARD, deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+            camera.ProcessKeyboard(LEFT, deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+            camera.ProcessKeyboard(RIGHT, deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
+            camera.ProcessKeyboard(UP, deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
+            camera.ProcessKeyboard(DOWN, deltaTime);
+    }
+    else {
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+            fixedCamera.ProcessKeyboard(CAMERA_LEFT, deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+            fixedCamera.ProcessKeyboard(CAMERA_RIGHT, deltaTime);
+    }
+
+    // cart move
+    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
+        car.ProcessKeyboard(CAR_FORWARD, deltaTime);
+
+        // You can only rotate left and right when the car is moving
+        if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
+            car.ProcessKeyboard(CAR_LEFT, deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
+            car.ProcessKeyboard(CAR_RIGHT, deltaTime);
+
+        if (isCameraFixed)
+            camera.ZoomOut();
+    }
+    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
+        car.ProcessKeyboard(CAR_BACKWARD, deltaTime);
+
+
+        // You can only rotate left and right when the car is moving, functions same as above
+        if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
+            car.ProcessKeyboard(CAR_LEFT, deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
+            car.ProcessKeyboard(CAR_RIGHT, deltaTime);
+
+        if (isCameraFixed)
+            camera.ZoomIn();
+    }
+
+    // Callback to monitor the key press (a key will only trigger an event once)
+    glfwSetKeyCallback(window, key_callback);
+}
+
+
+// key callback function, so that only one event is triggered per key press
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+    if (key == GLFW_KEY_C && action == GLFW_PRESS) {
+        isCameraFixed = !isCameraFixed;
+        string info = isCameraFixed ? "ÇÐ»»Îª¹Ì¶¨ÊÓ½Ç" : "ÇÐ»»Îª×ÔÓÉÊÓ½Ç";
+        std::cout << "[CAMERA]" << info << std::endl;
+    }
+    if (key == GLFW_KEY_X && action == GLFW_PRESS) {
+        isPolygonMode = !isPolygonMode;
+        if (isPolygonMode) {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        }
+        else {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        }
+        string info = isPolygonMode ? "ÇÐ»»ÎªÏß¿òÍ¼äÖÈ¾Ä£Ê½" : "ÇÐ»»ÎªÕý³£äÖÈ¾Ä£Ê½";
+        std::cout << "[POLYGON_MODE]" << info << std::endl;
+    }
+}
+
+// mouse movement
+void mouse_callback(GLFWwindow* window, double xpos, double ypos)
+{
+    if (!isCameraFixed) {
+        if (firstMouse) {
+            lastX = xpos;
+            lastY = ypos;
+            firstMouse = false;
+        }
+
+        float xoffset = xpos - lastX;
+        float yoffset = lastY - ypos; // Coordinates are flipped to correspond to the coordinate system
+
+        lastX = xpos;
+        lastY = ypos;
+
+        camera.ProcessMouseMovement(xoffset, yoffset);
+    }
+}
+
+// mouse wheel
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+    camera.ProcessMouseScroll(yoffset);
+}
+
+// ---------------------------------
+// window related functions
+// ---------------------------------
+
+// Callback function for resizing the window
+void framebuffer_size_callback(GLFWwindow* window, int width, int height)
+{
+
+    // Make sure the window matches the new window size
+    glViewport(0, 0, width, height);
+}
+
+
+// ---------------------------------
+// load related functions
+// ---------------------------------
+
+// Load six textures as a cubemap texture
+unsigned int loadCubemap(vector<std::string> faces)
+{
+    unsigned int textureID;
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+
+    int width, height, nrChannels;
+    for (unsigned int i = 0; i < faces.size(); i++) {
+        unsigned char* data = stbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
+        if (data) {
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+            stbi_image_free(data);
+        }
+        else {
+            std::cout << "Cubemap texture failed to load at path: " << faces[i] << std::endl;
+            stbi_image_free(data);
+        }
+    }
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    return textureID;
+}
